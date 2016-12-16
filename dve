@@ -12,11 +12,12 @@ OPTS="-map 0 -c:V libx265 -pix_fmt yuv420p10le -preset fast"
 # and fonts, so they only get copied once.
 DATA_OPTS="-map 0 -c:s copy -c:t copy -c:d copy -c:a copy -Vn"
 DATA_OPTS="-map 0:s? -map 0:t? -map 0:d? -map 0:a?"
-SUFFIX="_x265.mkv"
 SERVERS=":"
 LEN=300
 CWD=$(pwd)
 OUTDIR=$(mktemp -d)
+FORMAT=matroska
+DEFAULT_SUFFIX=_x265.mkv
 
 function on_finish() {
   echo "Cleaning up temporary working files"
@@ -47,9 +48,10 @@ OPTIONS:
     -l  comma separated list of hosts to use to encode. (default=${SERVERS})
     -t  rough length of individual video chunks, in seconds. (default=${LEN})
     -o  encoding options. (default=${OPTS})
-    -s  output file suffix. (default=${SUFFIX})
+    -s  output file suffix. (default=${DEFAULT_SUFFIX})
     -q  video encoding quality, shortcut to use default encoding options with
         a different CRF. (default=${CRF})
+    -f  format (default=matroska)
     -v  verbose job output. (default=false)
 EOF
 }
@@ -64,7 +66,7 @@ function checkpaths() {
     done
 }
 
-while getopts “hl:t:o:s:q:v” OPTION; do
+while getopts “hl:t:o:s:q:vf:” OPTION; do
     case $OPTION in
     h)
     usage
@@ -86,6 +88,9 @@ while getopts “hl:t:o:s:q:v” OPTION; do
     s)
     SUFFIX="$OPTARG"
     ;;
+    f)
+    FORMAT="$OPTARG"
+    ;;
     v)
     VERBOSE="info"
     ;;
@@ -96,6 +101,16 @@ while getopts “hl:t:o:s:q:v” OPTION; do
     esac
 done
 shift $((OPTIND-1))
+
+if [ x"$SUFFIX" = x"" ] ; then
+  if [ x"$FORMAT" = x"matroska" ] ; then
+    SUFFIX="_x265.mkv"
+  elif [ x"$FORMAT" = x"mp4" ] ; then
+    SUFFIX="_x265.mp4"
+  else
+    SUFFIX="_x265.${FORMAT}"
+  fi
+fi
 
 if [ $# -lt 1 ]; then
     usage
@@ -151,13 +166,13 @@ DATA_OPTS="${DATA_OPTS} -c copy"
 
 echo "Creating chunks to encode"
 if [[ "$1" == *".AVI" || "$1" == *".avi" ]]; then
-       "${ENC}" -hide_banner -fflags +genpts -i "$1" -map 0:V -codec copy -f segment -segment_time $LEN -segment_format matroska -v ${VERBOSE} "${OUTDIR}/chunk-%03d.orig"
+       "${ENC}" -hide_banner -fflags +genpts -i "$1" -map 0:V -codec copy -f segment -segment_time $LEN -segment_format "${FORMAT}" -v ${VERBOSE} "${OUTDIR}/chunk-%03d.orig"
 else
-       "${ENC}" -hide_banner -i "$1" -map 0:V -codec copy -f segment -segment_time $LEN -segment_format matroska -v ${VERBOSE} "${OUTDIR}/chunk-%03d.orig"
+       "${ENC}" -hide_banner -i "$1" -map 0:V -codec copy -f segment -segment_time $LEN -segment_format "${FORMAT}" -v ${VERBOSE} "${OUTDIR}/chunk-%03d.orig"
 fi
 echo "Copying file metadata"
 DATA_IN="-i ${OUTDIR}/data.enc"
-"${ENC}" -y -v "${VERBOSE}" -err_detect ignore_err -i "$1" ${DATA_OPTS} -f matroska "${OUTDIR}/data.enc" ||
+"${ENC}" -y -v "${VERBOSE}" -err_detect ignore_err -i "$1" ${DATA_OPTS} -f "${FORMAT}" "${OUTDIR}/data.enc" ||
   DATA_IN=""
 
 ls -l "${OUTDIR}/data.enc"
@@ -173,7 +188,7 @@ cd "$OUTDIR"
 echo "Running parallel encoding jobs"
 PAR_OPTS="--no-notice --gnu -j 1 -S ${SERVERS} --eta --retries 2 --nice 10"
 PAR_OPTS="${PAR_OPTS} --workdir ... --transfer --return {.}.enc"
-ENC_OPTS=" -hide_banner -y -v ${VERBOSE} -i {} ${OPTS} -f matroska {.}.enc"
+ENC_OPTS=" -hide_banner -y -v ${VERBOSE} -i {} ${OPTS} -f ${FORMAT} {.}.enc"
 
 parallel ${PAR_OPTS} ${ENC} ${ENC_OPTS} ::: chunk-*.orig
 
@@ -185,7 +200,7 @@ done
 BASE=$(basename "${INFILE}")
 BASEDIR=$(dirname "${INFILE}")
 OUTFILE="${BASEDIR}/${BASE%.*}${SUFFIX}"
-${ENC} -y -v ${VERBOSE} -f concat -i concat.txt ${DATA_IN} -f matroska -c copy "${OUTFILE}"
+${ENC} -y -v ${VERBOSE} -f concat -i concat.txt ${DATA_IN} -f "${FORMAT}" -c copy "${OUTFILE}"
 
 OUTPUT_DURATION=$(duration "${OUTFILE}")
 OUTPUT_STREAMS=$(streams "${OUTFILE}")
