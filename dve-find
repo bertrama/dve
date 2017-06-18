@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# First figure out where we're being run from
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+if [ x"$1" = x"" ] ; then
+  TARGET="."
+else
+  TARGET="$1"
+fi
+
+if [ x"$2" = x"" ] ; then
+  REMMOTE=":"
+else
+  REMOTE="$2"
+fi
+
+find "$TARGET" \
+  -type f \
+  -not -name \*x265\* \
+  -not -name \*.srt \
+  -not -name \*.tbn \
+  -not -name \*.nfo \
+  -not -name \*.jpg \
+  -not -name \*.smi \
+  -not -name \*.nfo-orig \
+  -not -name \*.txt \
+  -not -name \*.dat \
+  -not -name \*.xml \
+  -not -name \*.db \
+  -not -name \*.doc \
+  -not -name \*.jpeg \
+  -not -name \*.png \
+  -not -name \*.sfv \
+  -not -name \*.idx \
+  -not -name \*.sub \
+  -not -name \*.url \
+  -not -name \*.BMP \
+  -not -name \*.URL \
+  -not -name \*.torrent \
+  -not -name \*.IFO \
+  -not -name \*.VOB \
+  -not -name \*.BUP \
+  -not -name \*.rar \
+  -not -name \*.bin \
+  -not -name \*.cue \
+  -not -name \*.iso \
+  -not -name \*.exe \
+  -not -name \*.srr \
+  -not -name \*.NFO \
+  -not -name \*.rtf \
+  -exec "$DIR/dve" -l "${REMOTE}" {} \;
+
+stty sane
