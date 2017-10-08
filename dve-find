@@ -22,6 +22,8 @@ else
   REMOTE="$2"
 fi
 
+trap 'stty sane' EXIT
+
 find "$TARGET" \
   -type f \
   -not -name \*x265\* \
@@ -56,6 +58,11 @@ find "$TARGET" \
   -not -name \*.srr \
   -not -name \*.NFO \
   -not -name \*.rtf \
-  -exec "$DIR/dve" -l "${REMOTE}" {} \;
+  -print0 \
+  | sort -z \
+  | xargs \
+    -0 \
+    -L1 \
+    "$DIR/dve" \
+    -l "${REMOTE}"
 
-stty sane
