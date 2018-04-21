@@ -1,0 +1,18 @@
+#!/bin/bash
+
+ENCODER=ffmpeg
+OPTIONS="-c copy -c:v libx265 -crf 24 -preset veryslow -hide_banner -xerror"
+INFILE="$(realpath "$1")"
+OUTFILE="$INFILE.x265.mp4"
+
+if "${ENCODER}" -i "${INFILE}" $OPTIONS "${OUTFILE}" ; then
+  if [ "$(stat -c%s "${INFILE}")" -gt "$(stat -c%s "${OUTFILE}")" ] ; then
+    rm "${INFILE}" 
+  else
+    echo "Encoded file larger than original."
+    rm "${OUTFILE}"
+  fi
+else
+  echo "Error encoding file."
+  rm "${OUTFILE}"
+fi
